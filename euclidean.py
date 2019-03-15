@@ -211,41 +211,13 @@ class Embedding(nn.Module):
         self.init_weights()
 
     def init_weights(self, scale=1e-4):
-#         self.lt.state_dict()['weight'].uniform_(-scale, scale)
-        # self.lt.state_dict()['weight'].normal_(mean=0, std=0.01)
-        # self.lt.state_dict()['weight'].normal_(mean=10, std=0.01)
-        # self.lt.state_dict()['weight'].normal_(mean=1000, std=10000)
-        # self.lt.state_dict()['weight'].normal_(mean=1, std=0.1)
-        # self.lt.state_dict()['weight'].normal_(mean=1, std=0.1)
-        # self.lt.state_dict()['weight'].normal_(mean=100000, std=10000000)
-        # self.lt.state_dict()['weight'].normal_(mean=2, std=1)
         scale=0.001
-        # scale=1000
         self.lt.state_dict()['weight'].uniform_(-scale, scale)
 
         weights=self.lt.state_dict()['weight']
-        # print ("Weights init - normal random sampling")
-        # print (weights.shape)
-        # print (weights)
-
-        # norms=th.norm(weights,p=2,dim=1, keepdim=True)
-        # out_of_l2ball_inds=th.squeeze(norms>1)
-        # weights.data[out_of_l2ball_inds]=th.div(weights.data[out_of_l2ball_inds],norms[out_of_l2ball_inds])
-
-        # weights[:,0]=th.sqrt(th.sum(th.pow(weights[:,1:],2), 1)+1.)
-        # self.lt.weight=th.nn.Parameter(weights)
 
     def forward(self, inputs):
         e = self.lt(inputs)
-        # print ("Pass Forward - embeddings")
-        # print (e.shape)
-        # print ("Pass Forward - first sample - user")
-        # print (e[0,0,:])
-        # print ("Pass Forward - first sample - pos item")
-        # print (e[0,1,:])
-        # print ("Pass Forward - first sample - neg item")
-        # print (e[0,2,:])
-        # print (e)
         norms=HyperboloidDistance.minkowski_tensor_dot(e,e)
         fval = self._forward(e)
         return fval
@@ -265,50 +237,13 @@ class CF_SNEmbedding(Embedding):
     '''
     def __init__(self, size, dim, dist=model.PoincareDistance, max_norm=1):
         super(CF_SNEmbedding, self).__init__(size, dim, dist, max_norm)
-        # self.beta = nn.Parameter(th.rand(1))
-        # self.beta = nn.Parameter(-th.rand(1,1))
-        # constrained_beta=th.autograd.Variable(-th.rand(1), requires_grad=True).cuda(0)
-        # constrained_beta=th.clamp(constrained_beta, min=-1e-8)
-        # self.beta=nn.Parameter(constrained_beta)
-        # self.c = nn.Parameter(th.rand(1))
         self.dist=dist
 
     def _forward(self, e):
-        # print (e)
-        # sys.exit(4)
-        # norms=HyperboloidDistance.minkowski_tensor_dot(e,e)
-        # print (norms)
-        # sys.exit(10)
-
         o = e.narrow(1, 1, e.size(1) - 1)
         s = e.narrow(1, 0, 1).expand_as(o)
 
-        # print (e.shape)
-        # print (o.shape)
-        # print (s.shape)
-
-        # print (e[1,:,:])
-        # print (o[1,:,:])
-        # print (s[1,:,:])
-        # sys.exit(4)
-
-        # print (s[0,:,:])
-        # print (o[0,:,:])
-        # norms=HyperboloidDistance.minkowski_tensor_dot(s,s)
-        # print ("Pass Forward - dist left")
-        # print (s.shape)
-        # print (s)
-        # print ("Pass Forward - dist right")
-        # print (o)
         dists = self.dist()(s, o).squeeze(-1)
-        # print ("OK")
-        # print (dists[0])
-        # print (th.sum(th.isnan(dists)))
-        # sys.exit(43)
-
-        # return dists * self.beta + self.c, e
-        # return dists * self.beta, e
-        # return -dists, e
         return dists, e
 
 class bpr_loss(nn.Module):
@@ -322,68 +257,26 @@ class bpr_loss(nn.Module):
         self.regularisation = regularisation
 
     def forward(self, scores, embeddings):
-        # print (scores.shape)
-        # print (embeddings.shape)
-        # sys.exit(4)
-        # differences = scores[:,0] - scores[:,1]
-
-        # FIXME reversing pos and neg items order with positive distance function
-        # differences = scores[:,1] - scores[:,0]
-        # differences = scores[:,1] - scores[:,0]
         differences = scores[:,1] - scores[:,0]
-        # differences = scores[:,0] - scores[:,1]
-
-        # print ("Evaluating Loss - Error Term + Euclidean Norm of embeddings")
-        # print ("Pass Forward - Evaluating Loss - difference score of distances")
-        # print (differences.shape)
-        # print (differences.detach().cpu().numpy())
         sig_diff = -th.log(F.sigmoid(differences))
-        # sig_diff = -F.sigmoid(differences)
-        # sig_diff =differences
-        # sig_diff =scores[:,0]
-        # return (sig_diff.mean())
         reg = self.regularisation * th.sum(embeddings * embeddings).cuda(0)
-        # return (sig_diff.mean())
-        # print ("Pass Forward - Evaluating Loss - non linearities + Error Term + Euclidean Norm of embeddings")
         res=(sig_diff + reg).mean()
-        # print (res.shape)
-        # print (res.detach().cpu().numpy())
-
-        # print ("Pass Forward - Evaluating Loss - AVERAGE non linearities + Error Term + Euclidean Norm of embeddings")
         return res
 
 # In[15]:
 
 def bprl_loss_error(scores):
-    # print ("INSIDE LOSS FUNCTION")
-    # print (th.mean(scores[:,0] ))
-    # print (th.mean(scores[:,1] ))
-    # print ("END INSIDE LOSS FUNCTION")
-
     # FIXME reversing pos and neg items order with positive distance function
-    # differences = scores[:,1] - scores[:,0]
     differences = scores[:,1] - scores[:,0]
-    # differences = scores[:,1] - scores[:,0]
-
-    # print ("ICI")
-    # print (th.isnan(differences))
     sig_diff = -th.log(F.sigmoid(differences))
-
-    # print ("Evaluating Loss - Error Term")
     res=(sig_diff).mean()
-    # print ("%.10e" % res.detach().cpu().numpy())
     return res
 
 def bprl_loss_norm(embeddings):
     res=th.mean(embeddings * embeddings).cuda(0)
-    # print ("Evaluating Loss - Euclidean Norm on embeddings")
-    # print ("%.10e" % res.detach().cpu().numpy())
     return res
 
-# cf = CF_SNEmbedding(len(user_item_id_to_idx), n_dimensions).cuda(0)
 cf = CF_SNEmbedding(len(user_item_id_to_idx), n_dimensions, distfn).cuda(0)
-# cf = CF_SNEmbedding(len(user_item_id_to_idx), n_dimensions)
-
 # In[16]:
 
 # define our optimizer. This is taken directly from Nickel and Kiela 2017
@@ -407,42 +300,11 @@ bprl = bpr_loss(regularisation)
 # train the model. Each epoch compute new random negative examples. Split into batches and print loss after each epoch
 
 reg_lam = th.FloatTensor([regularisation]).cuda(0)
-# reg_lam = th.FloatTensor([regularisation])
-
-# n_epochs = 200
-# n_epochs = 200
-# n_epochs = 2
-# n_epochs=20
-# n_epochs=100
-# n_epochs=1
-# n_epochs=5
-# n_epochs=35
-# n_epochs=3
-# n_epochs=1
 n_epochs=10
-# n_epochs=20
-# n_epochs=10
-# n_epochs=13
-# n_epochs=20
-# n_epochs=100
-# n_epochs=1000
 
 curr_lr=learning_rate
 for epoch in range(n_epochs):
-    # filename = "model_%s_clothing_lr%f_reg%f_ndim%i_run%s_epoch%i.torch" % (distance_function, learning_rate, regularisation, n_dimensions, run_name, epoch)
-    # print ("saving %s ..." % filename)
-    # startTime=time.time()
-    # th.save(cf, filename)
-    # endTime=time.time()
-    # print ("saving. Done. [%s]" % (endTime-startTime))
     params=list(cf.parameters())
-    # print (len(params))
-    # print (params[0])
-    # print (params[1])
-    # print (params[1].shape)
-    # print (th.isnan(params[1]))
-    # print (np.any(th.isnan(params[1])))
-    # sys.exit(0)
 
     epoch_loss_error = []
     epoch_loss_norm = []
@@ -452,31 +314,12 @@ for epoch in range(n_epochs):
 
     #Training set
     random_negatives = np.random.choice(all_item_ids, (pos_pairs.shape[0], 1))
-    # print (pos_pairs.shape)
-    # print (pos_pairs[0:10,:])
-    # print (random_negatives[0:10])
-    # print (pos_pairs.shape)
-    # print (random_negatives.shape)
     input_triplets = np.concatenate((pos_pairs, random_negatives), axis=1)
-    # print (input_triplets[0:10,:])
-    # print (input_triplets.shape)
     pos_items=np.copy(input_triplets[:,1])
     neg_items=np.copy(input_triplets[:,2])
-    # input_triplets[:,1]=neg_items
-    # input_triplets[:,2]=pos_items
-    # print (input_triplets[0:10,:])
     input_triplets = th.LongTensor(input_triplets)
 
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=16, shuffle=True)
     tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=128, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=32, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=16, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=1, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=32, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=128, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=256, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=512, shuffle=True)
-    # tripletloader = th.utils.data.DataLoader(input_triplets, batch_size=1024, shuffle=True)
 
     #Validation set
     val_random_negatives = np.random.choice(all_item_ids, (val_pos_pairs.shape[0], 1))
@@ -484,8 +327,6 @@ for epoch in range(n_epochs):
 
     pos_items=np.copy(val_input_triplets[:,1])
     neg_items=np.copy(val_input_triplets[:,2])
-    # val_input_triplets[:,1]=neg_items
-    # val_input_triplets[:,2]=pos_items
 
     val_input_triplets = th.LongTensor(val_input_triplets)
 
@@ -493,78 +334,22 @@ for epoch in range(n_epochs):
     updated_curr_lr=False
     for batch in tripletloader:
         batch = th.autograd.Variable(batch).cuda(0)
-        # print ("Start new Optimisation loop - input triplets")
-        # print (batch.shape)
-        # print (batch)
-
-        # batch = th.autograd.Variable(batch)
         preds, e = cf(batch)
-        # print (th.isnan(preds))
-
-        # print (np.any(th.isnan(preds)))
-        # print (np.any(th.isnan(e)))
-
-        # print ((np.mean(preds[:,0].data[0],axis=None),np.mean(preds[:,1].data[0],axis=None)))
         loss = bprl(preds, e)
-        # print ("loss=%f" % loss)
-        # print ("LOSS VALUE")
-        # print (loss)
-        # print ("END LOSS VALUE")
-        # print ("ERROR")
-        # tmp_loss_error=bprl_loss_error(preds)
-        # print (th.isnan(preds))
-
-        # print ("END ERROR")
-        # print ("NORM")
-        # loss_norm=bprl_loss_norm(e)
-        # print (loss_norm)
-        # print ("END NORM")
-
-        # loss_error=bprl_loss_error(preds)
-        # loss_norm=bprl_loss_norm(e)
-        # e.retain_grad()
         optimizer.zero_grad()
         loss.backward()
-        # print ("Backward Pass Finished! - below is embeding gradients")
-        # print (e.grad.shape)
-        # print (e.grad)
-        # print (th.sum(th.abs(e.grad)))
-        # optimizer.step(lr=lr)
         optimizer.step(lr=curr_lr)
-        # optimizer.step(lr=lr)
         if epoch % 10 == 0 and not updated_curr_lr:
             curr_lr=float(curr_lr)/float(epoch+1)
             updated_curr_lr=True
-        # sys.exit(2)
-        # loss = bprl(preds, e)
-        # print ("LOSS VALUE - AFTER BACKWARD")
-        # print (loss)
-        # print ("END LOSS VALUE - AFTER BACKWARD")
-        # print ("ERROR - AFTER BACKWARD")
         tmp_loss_error=bprl_loss_error(preds)
-        # print (tmp_loss_error)
-        # print ("END ERROR - AFTER BACKWARD")
-        # print ("NORM - AFTER BACKWARD")
         tmp_loss_norm=bprl_loss_norm(e)
-        # print (loss_norm)
-        # print ("END NORM - AFTER BACKWARD")
-
-        # epoch_loss.append(loss.data[0])
-        # epoch_loss_error.append(tmp_loss_error.data[0])
-        # epoch_loss_norm.append(tmp_loss_norm.data[0])
         epoch_loss_error.append(tmp_loss_error.data.item())
         epoch_loss_norm.append(tmp_loss_norm.data.item())
-        # print ("--%f" % loss.data[0])
-        # sys.exit(0)
-        # if zzz>10:
-        #     sys.exit(0)
-        # zzz=zzz+1
 
     updated_curr_lr=False
     print ("Epoch %i lr[%.2e]" % (epoch,curr_lr))
-    # print ("Epoch %i lr[%.2e]" % (epoch,curr_lr))
     val_batch = th.autograd.Variable(val_input_triplets).cuda(0)
-    # val_batch = th.autograd.Variable(val_input_triplets)
     preds, e = cf(val_batch)
     nan_in_embeddings=th.any(th.isnan(e)) | th.any(th.isinf(e))
     if nan_in_embeddings:
@@ -585,11 +370,7 @@ for epoch in range(n_epochs):
     print ("loss_error_val=%f" % loss_error)
     print (np.mean(epoch_loss_norm))
 
-    # print(epoch, np.mean(epoch_loss), loss.data[0])
-    # print(epoch, np.mean(epoch_loss_error), float(loss_error.data[0]), np.mean(epoch_loss_norm), float(loss_norm.data[0]))
     print(epoch, np.mean(epoch_loss_error), float(loss_error.data.item()), np.mean(epoch_loss_norm), float(loss_norm.data.item()))
-    # print ((cf.beta,cf.c))
-    # print (cf.beta)
     print (th.mean(preds[:,0]),th.mean(preds[:,1]))
     print (th.mean(preds[:,0]-preds[:,1]))
 
@@ -644,7 +425,6 @@ neg_items=np.copy(test_samples[:,2])
 
 print (test_samples.shape)
 test_samples = th.autograd.Variable(th.LongTensor(test_samples))
-# filename = "model_clothing_lr%f_reg%f.torch" % (learning_rate, regularisation)
 
 filename = "model_%s_clothing_lr%f_reg%f_ndim%i_run%s.torch" % (distance_function, learning_rate, regularisation, n_dimensions, run_name)
 print ("saving %s ..." % filename)
@@ -667,7 +447,6 @@ print (th.mean(test_scores[:,0]-test_scores[:,1]))
 
 test_scores = test_scores.data.numpy()
 
-# test_ranks = np.argsort(-test_scores, axis=1)
 test_ranks = np.argsort(test_scores, axis=1)
 
 # In[20]:
@@ -677,7 +456,6 @@ test_ranks = np.argsort(test_scores, axis=1)
 # product scores
 
 top_n = 10
-# top_n = 100
 
 hits = 0
 degenerated = 0
@@ -701,27 +479,11 @@ print ("nb hits [%i] nb degenerated [%i]" % (hits, degenerated))
 hit_rate = hits/test_ranks.shape[0]
 print('HR@'+str(top_n)+':', hit_rate)
 
-# hits = 0
-# for i in range(test_ranks.shape[0]):
-#     if 0 in test_ranks[i,:top_n]:
-#     # if 1 in test_ranks[i,:top_n]:
-#         s=np.copy(-test_scores[i,])
-#         s_shuffle=np.copy(s)
-#         s.sort()
-#         sub_s=np.copy(s[:top_n])
-#         sub_s_shuffle=np.copy(sub_s)
-#         np.random.shuffle(sub_s_shuffle)
-#         if not np.array_equal(s, s_shuffle) and not np.array_equal(sub_s, sub_s_shuffle):
-#             hits += 1
-# hit_rate = hits/test_ranks.shape[0]
-# print('HR@'+str(top_n)+':', hit_rate)
-
 
 # In[21]:
 # Computes Normalized Discounted Cumulative Gain at N
 
 top_n = 10
-# top_n = 100
 
 test_ranks_topn = test_ranks[:,:top_n]
 
